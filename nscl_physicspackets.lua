@@ -15,7 +15,6 @@ local function UnpackTrigger(data, offset, size)
     time, offset = DecodeBytes(data, "H", offset)
 
     trig = (time & 0xf000) >> 12
-    if tbranches then tbranches.Trig:Get(trigs[trig]):PushBack(time & 0x0fff) end
   end
 
   return offset
@@ -83,16 +82,6 @@ local function UnpackScintillator(data, offset, size)
     if nscl_buffer then
       nscl_buffer[#nscl_buffer].scint[ch == 0 and "up" or "down"]:insert(en_val & 0x07ff)
     end
-
-    if tbranches then
-      if ch == 0 then
-        tbranches.Scint:Get("de_up"):PushBack(en_val & 0x07ff)
-        tbranches.Scint:Get("time_up"):PushBack(t_val & 0x0fff)
-      elseif ch == 1 then
-        tbranches.Scint:Get("de_down"):PushBack(en_val & 0x07ff)
-        tbranches.Scint:Get("time_down"):PushBack(t_val & 0x0fff)
-      end
-    end
   end
 
   return offset
@@ -114,10 +103,6 @@ local function UnpackICEnergy(data, offset, size)
       local icdata = nscl_buffer[#nscl_buffer].ionchamber
       icdata[channel] = energy
       icdata.mult = icdata.mult+1
-    end
-
-    if tbranches then
-      tbranches.Ic:Get("data"):PushBack(channel, energy)
     end
   end
 
@@ -228,12 +213,6 @@ local function UnpackCRDCRaw(data, offset, size)
         prev_sample = sample
       end
     end
-
---    if tbranches then
---      tbranches.Crdc:Get("ch"):PushBack(ch_tbl)
---      tbranches.Crdc:Get("data"):PushBack(data_tbl)
---      tbranches.Crdc:Get("sample"):PushBack(sample_tbl)
---    end
   end
 
   return offset
@@ -255,11 +234,6 @@ local function UnpackCRDCAnode(data, offset, size)
     crdc_entry.energy = en & 0xfff
     crdc_entry.time = time & 0xfff
   end
-
-  if tbranches then
-    tbranches.Crdc:Get("anode"):PushBack(en)
-    tbranches.Crdc:Get("tac"):PushBack(time)
-  end
   return offset
 end
 
@@ -280,8 +254,6 @@ local function UnpackCRDC(data, offset, size)
     if nscl_buffer[#nscl_buffer].crdc == nil then nscl_buffer[#nscl_buffer].crdc = newtable() end
     nscl_buffer[#nscl_buffer].crdc:insert({id=label, data={}, anode={}, mult=0})
   end
-
-  if tbranches then tbranches.Crdc:Get("id"):PushBack(label) end
 
   local subpacket_length, subpacket_type
 
@@ -393,13 +365,6 @@ local function UnpackPpacRaw(data, offset, size)
     local conn = word2 >> 10
 
     local idx = (conn%2 == 0) and TrackingPPACIndexes[ch].even or TrackingPPACIndexes[ch].odd
-
-    if tbranches then
-      tbranches.Tppac:Get("id"):PushBack(idx)
-      tbranches.Tppac:Get("ch"):PushBack(idx + conn*64)
-      tbranches.Tppac:Get("sample"):PushBack(word1 >> 6)
-      tbranches.Tppac:Get("data"):PushBack(word2 & 0x3ff)
-    end
   end
 
   return offset
@@ -424,11 +389,6 @@ local function UnpackHodoEnergy(data, offset, size)
   while offset < last_byte do
     local hodo
     hodo, offset = DecodeBytes(data, "H", offset)
-
-    if tbranches then
-      tbranches.Hodo:Get("ch"):PushBack((hodo & 0xf000) >> 12)
-      tbranches.Hodo:Get("data"):PushBack(hodo & 0x0fff)
-    end
   end
 
   return offset
@@ -440,12 +400,6 @@ local function UnpackHodoHitpattern(data, offset, size)
   hit_0_15, offset = DecodeBytes(data, "H", offset)
   hit_16_31, offset = DecodeBytes(data, "H", offset)
   time, offset = DecodeBytes(data, "H", offset)
-
-  if tbranches then
-    tbranches.Hodo:Get("regA"):PushBack(hit_0_15)
-    tbranches.Hodo:Get("regB"):PushBack(hit_16_31)
-    tbranches.Hodo:Get("tac"):PushBack(time)
-  end
 
   return offset
 end
@@ -505,13 +459,6 @@ local function UnpackXLM(data, offset, size)
           print("  ------> energy:", energy)
           print("  ------> time:", time)
           print("  ------> offset:", offset)
-        end
-
-        if tbranches then
-          tbranches.Si:Get("mbID"):PushBack(xlm_id)
-          tbranches.Si:Get("cbID"):PushBack((id & 0x1fe0) >> 5)
-          tbranches.Si:Get("channel"):PushBack(id & 0x1f)
-          tbranches.Si:Get("energy"):PushBack(energy)
         end
 
         if last_byte - offset < 6 then
