@@ -39,6 +39,20 @@ local cal_params = {
   }
 }
 
+local coinc_window = { -5, 5 }
+
+local function SetCoincidenceWindow(clock_min, clock_max)
+  coinc_window[1] = clock_min
+  coinc_window[2] = clock_max
+  
+  print(string.format("Coincidence window between ORRUBA and S800 set to [ %d - %d ]", clock_min, clock_max))
+end
+
+AddSignal("setcoincwindow", function(low, high)
+    print("setcoincwin", low, high)
+    SetCoincidenceWindow(low, high)
+  end)
+
 function ProcessNSCLBuffer(nscl_buffer, nevt_origin)
   local gravity_width = 12
 
@@ -55,7 +69,7 @@ function ProcessNSCLBuffer(nscl_buffer, nevt_origin)
 
       online_hists.h_clockdiff:Fill(nevt+nevt_origin, clock_diff)
 
-      if clock_diff < 9 and clock_diff > 3 then
+      if clock_diff < coinc_window[2] and clock_diff > coinc_window[1] then
         coinc_ORRUBA_S800 = true
       end
     end
@@ -240,6 +254,10 @@ function ProcessNSCLBuffer(nscl_buffer, nevt_origin)
       end
     end
 
+    if buf_mem.crdc1x and buf.crdc[1].anode.time then
+      NSCL_UNPACKER.CorrelationProcessor.h_crdc1_tacvsxgrav(buf_mem.crdc1x, buf.crdc[1].anode.time)
+    end
+
     if buf_mem.tofs and buf_mem.tofs.xf and buf_mem.ic_avg then
       local corrf = cal_params.tof_correction
       buf_mem.tofs.xf_corr = buf_mem.tofs.xf + buf_mem.beam_angle*corrf.beam_angle + buf_mem.crdc1x*corrf.crdc1x
@@ -250,12 +268,10 @@ function ProcessNSCLBuffer(nscl_buffer, nevt_origin)
 
       NSCL_UNPACKER.CorrelationProcessor.crdc1x_vs_xfp(buf_mem.tofs.xf, buf_mem.crdc1x, cal_params.tof_correction.crdc1x)
 
-      if proton_in_orruba then
+      if coinc_ORRUBA_S800 then
         online_hists.h_s800pid_gate_orruba:Fill(buf_mem.tofs.xf_corr, buf_mem.ic_avg)
       end
     end
-
-    proton_in_orruba = false
   end
 
   return nevt

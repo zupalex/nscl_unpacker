@@ -34,7 +34,8 @@ function SetupNSCLHistograms()
   RegisterHistogram("h_crdc1_mult", "CRDC1 mult", 300, 0, 300)
   RegisterHistogram("h_crdc1_time", "CRDC1 Anode Time", 4096, 0, 4096)
 
-  RegisterHistogram("h_crdc1_2d", "CRDC1 energy vs. channel", 300, 0, 300, 8192, 0, 8192)
+  RegisterHistogram("h_crdc1_envsch", "CRDC1 energy vs. channel", 300, 0, 300, 2048, 0, 2048)
+  RegisterHistogram("h_crdc1_tacvsxgrav", "CRDC1 TAC vs. X", 2000, -100, 100, 2048, 0, 4096)
 
   RegisterHistogram("h_crdc2_chs", "CRDC2 Channels", 260, 0, 260)
   RegisterHistogram("h_crdc2_data", "CRDC2 data", 10000, 0, 5000)
@@ -42,7 +43,7 @@ function SetupNSCLHistograms()
   RegisterHistogram("h_crdc2_mult", "CRDC2 mult", 300, 0, 300)
   RegisterHistogram("h_crdc2_time", "CRDC2 Anode Time", 4096, 0, 4096)
 
-  RegisterHistogram("h_crdc2_2d", "CRDC2 energy vs. channel", 300, 0, 300, 8192, 0, 8192)
+  RegisterHistogram("h_crdc2_envsch", "CRDC2 energy vs. channel", 300, 0, 300, 8192, 0, 8192)
 
   RegisterHistogram("h_scint_de_up", "Scintillator de_up", 8192, 0, 8192)
   RegisterHistogram("h_scint_de_down", "Scintillator de_down", 8192, 0, 8192)
@@ -170,21 +171,20 @@ AddSignal("display_multi", function(divx, divy, hists)
     local can = TCanvas()
     can:Divide(divx, divy)
 
-    for i, hname in ipairs(hists) do
+    for i, hinfo in ipairs(hists) do
       local row_ = math.floor((i-1)/divy)+1
       local col_ = i - divy*(row_-1)
-
       if online_hists[hname] then
-        can:Draw(online_hists[hname],opts, row_, col_)
-        active_hists[hname] = online_hists[hname]
+        can:Draw(online_hists[hinfo.hname],hinfo.opts, row_, col_)
+        active_hists[hinfo.hname] = online_hists[hinfo.hname]
       end
 
-      if haliases[hname] then
-        can:Draw(haliases[hname].hist, opts, row_, col_)
-        active_hists[hname] = haliases[hname].hist
-      elseif online_hists[hname] then
-        can:Draw(online_hists[hname], opts, row_, col_)
-        active_hists[hname] = online_hists[hname]
+      if haliases[hinfo.hname] then
+        can:Draw(haliases[hinfo.hname].hist, hinfo.opts, row_, col_)
+        active_hists[hinfo.hname] = haliases[hinfo.hname].hist
+      elseif online_hists[hinfo.hname] then
+        can:Draw(online_hists[hinfo.hname], hinfo.opts, row_, col_)
+        active_hists[hinfo.hname] = online_hists[hinfo.hname]
       end
     end
   end)
@@ -229,6 +229,14 @@ AddSignal("unmap", function(hname)
     active_hists[hname] = nil
   end)
 
+AddSignal("zeroallhists", function()
+    for k, v in pairs(online_hists) do
+      v:Reset()
+    end
+
+    theApp:Update()
+  end)
+
 function SetupOfflineCanvas()
   can[1] = TCanvas()
   can[2] = TCanvas()
@@ -240,7 +248,7 @@ function SetupOfflineCanvas()
     can[i]:Draw(online_hists["h_crdc"..tostring(i).."_cal"], "", 1, 3)
     can[i]:Draw(online_hists["h_crdc"..tostring(i).."_mult"], "", 2, 1)
     can[i]:Draw(online_hists["h_crdc"..tostring(i).."_time"], "", 2, 2)
-    can[i]:Draw(online_hists["h_crdc"..tostring(i).."_2d"], "colz", 2, 3)
+    can[i]:Draw(online_hists["h_crdc"..tostring(i).."_envsch"], "colz", 2, 3)
     can[i]:SetLogScale(2, 3, "Z", true)
 
     can[i]:SetTitle("CRDC"..tostring(i))
@@ -354,7 +362,7 @@ local CRDCProcessor = {
   raw = function(crdcnum, pad, en_avg)
     online_hists["h_crdc"..tostring(crdcnum).."_chs"]:Fill(pad)
     online_hists["h_crdc"..tostring(crdcnum).."_data"]:Fill(en_avg)
-    online_hists["h_crdc"..tostring(crdcnum).."_2d"]:Fill(pad, en_avg)
+    online_hists["h_crdc"..tostring(crdcnum).."_envsch"]:Fill(pad, en_avg)
   end,
 
   cal = function(crdcnum, mult, xgravity)
@@ -417,6 +425,10 @@ local CorrelationProcessor = {
   crdc1x_vs_xfp = function(tof, crdc1x, cf)
     online_hists.crdc1x_vs_xfp:Fill(tof, crdc1x)
     online_hists.crdc1x_vs_xfp_corr:Fill(tof+crdc1x*cf, crdc1x)
+  end,
+
+  h_crdc1_tacvsxgrav = function(x, tac)
+    online_hists.h_crdc1_tacvsxgrav:Fill(x, tac)
   end,
 }
 
