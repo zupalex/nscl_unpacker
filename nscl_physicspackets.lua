@@ -1,3 +1,5 @@
+require("nscl_unpacker/nscl_unpacker_cfg")
+
 physicsPacketTypes = {}
 
 -- **************** TRIGGER PACKETS ******************** --
@@ -251,7 +253,9 @@ local function UnpackCRDC(data, offset, size)
   end
 
   if nscl_buffer then
-    if nscl_buffer[#nscl_buffer].crdc == nil then nscl_buffer[#nscl_buffer].crdc = newtable() end
+    if nscl_buffer[#nscl_buffer].crdc == nil then 
+      nscl_buffer[#nscl_buffer].crdc = newtable() 
+    end
     nscl_buffer[#nscl_buffer].crdc:insert({id=label, data={}, anode={}, mult=0})
   end
 
@@ -492,7 +496,7 @@ local function UnpackORRUBA84Se(data, offset, size)
 
     value, offset = DecodeBytes(data, "H", offset)
 
-    if nscl_buffer and channel <= 800 then
+    if nscl_buffer and channel <= 899 then
       nscl_buffer[#nscl_buffer].orruba[channel] = value
     end
 

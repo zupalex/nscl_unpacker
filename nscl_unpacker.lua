@@ -1,15 +1,6 @@
 require("binaryreader")
 
-NSCL_UNPACKER = {}
-NSCL_UNPACKER.sourceIDs = {}
-
-if not NSCL_DAQ_VERSION then NSCL_DAQ_VERSION = 10.2 end
-debug_log = 0
-debug_log_details = {}
-ignore_packets = {}
-
 require("nscl_unpacker/nscl_itempackets")
-require("nscl_unpacker/nscl_physicspackets")
 
 --CompileC("./2011_declasses.cxx", "nscl_2011_detclasses")
 --LoadLib("./2011_declasses_cxx.so", "nscl_2011_detclasses")

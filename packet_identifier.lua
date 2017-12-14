@@ -1,3 +1,5 @@
+require("nscl_unpacker/nscl_unpacker_cfg")
+
 local Identifiers = {
   E16025PacketIdentifier = function(frag_header, data, offset, max_search)
     if frag_header == nil or frag_header.sourceID == 2 then

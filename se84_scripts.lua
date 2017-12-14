@@ -1,9 +1,9 @@
 local OverrideIdentifyPacket = require("nscl_unpacker/packet_identifier.lua")
 
-NSCL_DAQ_VERSION = 11.0
-
 require("nscl_unpacker/nscl_unpacker")
 require("nscl_unpacker/nscl_processdata")
+
+NSCL_UNPACKER.NSCL_DAQ_VERSION = 11.0
 
 OverrideIdentifyPacket("E16025PacketIdentifier")
 
@@ -35,7 +35,7 @@ function StartBufferingAndRead(dump, source)
 
   if source == nil or source == "masterevb" or source == "meb" or source == "MEB" then
     source = "--source=tcp://spdaq08/masterevb"
-    PHYSICS_FRAGMENT = true
+    NSCL_UNPACKER.PHYSICS_FRAGMENT = true
   elseif source == "s800filter" then
     source = "--source=tcp://spdaq50/s800filter"
   elseif source == "orruba" then
@@ -203,7 +203,7 @@ function StartBufferingAndRead(dump, source)
 
       if debug_log == 0 then
 --      print(#nscl_buffer)
-        ProcessNSCLBuffer(nscl_buffer, hists, nevt)
+        ProcessNSCLBuffer(nscl_buffer, nevt)
       end
 
       if nevt-last_print > 10000 then
@@ -240,35 +240,23 @@ end
 ----------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------
 
-function Showh(hname, opts)
-  SendSignal("rslistener", "display", hname, opts)
-end
-
-function Unmaph(hname)
-  SendSignal("rslistener", "unmap", hname)
-end
-
-function ListHistograms(alias, ...)
-  local matches
-
-  if type(alias) == "string" then
-    matches = table.pack(alias, ...)
-    alias = true
-  else
-    matches = table.pack(...)
+function SetOutputType(out_type, input_type)
+  if out_type:lower() == "histograms" then
+    local init = require("nscl_unpacker/nscl_hist_processors")
+    init(input_type)    
   end
-
-  SendSignal("rslistener", "ls", alias, matches, false)
 end
 
-function StartListeningRingSelector(dump, source, accept)
+function StartListeningRingSelector(dump, source, accept, calibrate)
   if source == nil or source == "masterevb" or source == "meb" or source == "MEB" then
     source = "--source=tcp://spdaq08/masterevb"
-    PHYSICS_FRAGMENT = true
+    NSCL_UNPACKER.PHYSICS_FRAGMENT = true
   elseif source == "s800filter" then
     source = "--source=tcp://spdaq50/s800filter"
+    NSCL_UNPACKER.PHYSICS_FRAGMENT = false
   elseif source == "orruba" then
     source = "--source=tcp://spdaq08/orruba"
+    NSCL_UNPACKER.PHYSICS_FRAGMENT = false
   end
 
   if accept == nil then
@@ -277,19 +265,19 @@ function StartListeningRingSelector(dump, source, accept)
     accept = "--accept="..accept
   end
 
+  if calibrate then
+    orruba_applycal = true
+  elseif calibrate == false then
+    orruba_applycal = false
+  end
+
   nscl_buffer = {}
   scaler_buffer = {}
   physics_count_buffer = {}
 
   if dump then debug_log = 3 end
 
-  local hists
-
-  if debug_log == 0 then
-    hists = SetupNSCLHistograms()
-  end
-
-  InitOnlineDisplay(hists)
+  SetOutputType("histograms", "online")
 
   local pipe=AttachOutput(os.getenv("DAQBIN").."/ringselector", "ringselector", 
     {accept, "--non-blocking", source}, {"DAQBIN"})
@@ -374,11 +362,11 @@ function StartListeningRingSelector(dump, source, accept)
 
       if debug_log == 0 then
 --      print(#nscl_buffer)
-        ProcessNSCLBuffer(nscl_buffer, hists, nevt)
+        ProcessNSCLBuffer(nscl_buffer, nevt)
       end
     end
 
-    if nevt-last_print > 10000 then
+    if nevt-last_print > 2000 then
       if startingCounts.s800 and startingCounts.orruba then
         stat_term:Write(string.format("Received: S800 => %10d / %10d ||| ORRUBA => %10d / %10d\r", 
             s800_ev_counts, last_s800_evtnbr-startingCounts.s800, 
@@ -387,7 +375,7 @@ function StartListeningRingSelector(dump, source, accept)
 
       last_print = nevt
 
-      UpdateNSCLHistograms(hists)
+      NSCL_UNPACKER.PostProcessing()
     end
 
 --    theApp:ProcessEvents()
@@ -395,15 +383,15 @@ function StartListeningRingSelector(dump, source, accept)
     nscl_buffer = {}
     scaler_buffer = {}
     physics_count_buffer = {}
-end
+  end
 end
 
 function ReplayNSCLEvt(evtfile, max_packet, skip_to_physics)
   nscl_buffer = {}
   scaler_buffer = {}
 
-  PHYSICS_FRAGMENT = true
---  PHYSICS_FRAGMENT = false
+  NSCL_UNPACKER.PHYSICS_FRAGMENT = true
+--  NSCL_UNPACKER.PHYSICS_FRAGMENT = false
 
   local s800_file = assert(io.open(evtfile)) 
 
@@ -426,10 +414,7 @@ function ReplayNSCLEvt(evtfile, max_packet, skip_to_physics)
 
   local hists
 
-  if debug_log == 0 then
-    hists = SetupNSCLHistograms()
-    SetupOfflineCanvas(hists)
-  end
+  SetOutputType("histograms", "file")
 
 --  buffile:Write()
 
@@ -443,7 +428,7 @@ function ReplayNSCLEvt(evtfile, max_packet, skip_to_physics)
   print("Convert process started at")
   local success = os.execute("date")
 
-  while fpos < filelength and (max_packet == nil or packet_counter < max_packet) do
+  while CheckSignals() and fpos < filelength and (max_packet == nil or packet_counter < max_packet) do
     if debug_log == 0 and packet_counter-prevProgress > dumpEvery then
       prevProgress = packet_counter
       local progress = fpos/filelength
@@ -464,7 +449,7 @@ function ReplayNSCLEvt(evtfile, max_packet, skip_to_physics)
 
     if debug_log == 0 and read_ret == "PHYSICS_EVENT" then
 --      print(#nscl_buffer)
-      nevt = nevt + ProcessNSCLBuffer(nscl_buffer, hists, nevt)
+      nevt = nevt + ProcessNSCLBuffer(nscl_buffer, nevt)
     end
 
     nscl_buffer = {}
@@ -479,6 +464,4 @@ function ReplayNSCLEvt(evtfile, max_packet, skip_to_physics)
   success = os.execute("date")
 
 --  buffile:Close()
-
-  return hists
 end

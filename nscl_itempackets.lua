@@ -4,7 +4,7 @@ require("nscl_unpacker/nscl_physicspackets")
 
 local changestate_ts_fmt = "I4"
 
-if NSCL_DAQ_VERSION and NSCL_DAQ_VERSION >= 11.0 then
+if NSCL_UNPACKER.NSCL_DAQ_VERSION >= 11.0 then
   changestate_ts_fmt = "J"
 end
 
@@ -31,7 +31,7 @@ end
 local function UnpackScalerItem(binData, plength)
   local data, offset
 
-  if NSCL_DAQ_VERSION and NSCL_DAQ_VERSION >= 11.0 then
+  if NSCL_UNPACKER.NSCL_DAQ_VERSION >= 11.0 then
     data, offset = DecodeBytes(binData, "I4")
     data, offset = DecodeBytes(binData, "J", offset)
 
@@ -179,8 +179,8 @@ local function UnpackPhysicsEventItem(binData, plength)
 -- we need to determine the actual payload size as whatever is after the fragment header is considered payload and we already read some of these bytes
   local effective_payload_size = bytes_left
 
-  if PHYSICS_FRAGMENT then
-    if NSCL_DAQ_VERSION >= 11.0 then
+  if NSCL_UNPACKER.PHYSICS_FRAGMENT then
+    if NSCL_UNPACKER.NSCL_DAQ_VERSION >= 11.0 then
       master_body_header, offset = UnpackBodyHeader(binData, offset)
 
       if debug_log >= 2 then
@@ -199,7 +199,7 @@ local function UnpackPhysicsEventItem(binData, plength)
   end
 
   while offset < bytes_left do
-    if PHYSICS_FRAGMENT then
+    if NSCL_UNPACKER.PHYSICS_FRAGMENT then
       frag_header, offset = UnpackFragmentHeader(binData, offset)
 
       item_bytes, offset = DecodeBytes(binData, "I", offset)
@@ -218,7 +218,7 @@ local function UnpackPhysicsEventItem(binData, plength)
       end
     end
 
-    if NSCL_DAQ_VERSION >= 11.0 then
+    if NSCL_UNPACKER.NSCL_DAQ_VERSION >= 11.0 then
       body_header, offset = UnpackBodyHeader(binData, offset)
 
       effective_payload_size = effective_payload_size - (body_header.size == 0 and 4 or body_header.size)
@@ -260,7 +260,7 @@ end
 local function UnpackPhysicsEventCountItem(binData, plength)
   local data, offset = {}, nil
 
-  if NSCL_DAQ_VERSION and NSCL_DAQ_VERSION >= 11.0 then
+  if NSCL_UNPACKER.NSCL_DAQ_VERSION >= 11.0 then
     data.body_header_size, offset = DecodeBytes(binData, "I4")
 
     if data.body_header_size == 20 then
