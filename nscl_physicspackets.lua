@@ -1,4 +1,5 @@
 require("nscl_unpacker/nscl_unpacker_cfg")
+local mapping = require("ldf_unpacker/se84_mapping")
 
 physicsPacketTypes = {}
 
@@ -8,6 +9,12 @@ local function UnpackTrigger(data, offset, size)
   local last_byte = offset+size
   local trigpattern
   trigpattern, offset = DecodeBytes(data, "H", offset)
+
+--  print(trigpattern)
+
+  if nscl_buffer then
+    nscl_buffer[#nscl_buffer].trig = trigpattern
+  end
 
   local trigs = {[8] = "s800", [9] = "external1", [10] = "external2", [11] = "secondary"}
 
@@ -510,6 +517,56 @@ local function UnpackORRUBA84Se(data, offset, size)
   return last_byte
 end
 
+local function UnpackORRUBA84SeV2(data, offset, size)
+  local last_byte = offset+size
+
+  local orruba_data = {}
+
+  local buf
+
+  if nscl_buffer then
+    nscl_buffer[#nscl_buffer].orruba = {chvalmap = {}}
+    buf = nscl_buffer[#nscl_buffer].orruba
+  end
+
+  while offset < last_byte do
+    local value, channel
+    channel, offset = DecodeBytes(data, "H", offset)
+    channel = channel & 0x7fff
+
+    value, offset = DecodeBytes(data, "H", offset)
+
+    if buf and channel <= 899 then
+      local detinf = mapping.getdetinfo(channel)
+
+      if buf[detinfo.dettype] == nil then
+        buf[detinfo.dettype] = {}
+      end
+
+      if buf[detinfo.dettype][detinfo.detpos] == nil then
+        buf[detinfo.dettype][detinfo.detpos] = {}
+      end
+
+      if buf[detinfo.dettype][detinfo.detpos][detinfo.detnum] == nil then
+        buf[detinfo.dettype][detinfo.detpos][detinfo.detnum] = {}
+      end
+
+      local detbuf = buf[detinfo.dettype][detinfo.detpos][detinfo.detnum]    
+
+      detbuf[detinf.stripnum] = {channel=channel, value=value}
+      buf[channel] =  chval
+    end
+
+--    table.insert(orruba_data, {channel=channel, value=value})
+
+    if debug_log >= 2 then 
+      print("Channel number:", channel, "Value:", value)
+    end
+  end
+
+  return last_byte
+end
+
 -- **************** MESYTEC TDC PACKETS ******************** --
 
 local function UnpackMTDC(data, offset, size)
@@ -533,7 +590,7 @@ local function UnpackMTDC(data, offset, size)
 
     if mtdcs then
       if mtdcs[channel+1] == nil then mtdcs[channel+1] = {} end
-      
+
       mtdcs[channel+1][hit+1] = time
     end
   end

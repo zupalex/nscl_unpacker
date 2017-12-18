@@ -63,6 +63,7 @@ local function UnpackScalerItem(binData, plength)
   data, offset = DecodeBytes(binData, "I4", offset)
 
   if debug_log >= 1 then
+--  if true then
     print("  -> interval start =", data)
     print("  -> interval end =", data)
     print("  -> timestamp (again?) =", data)
@@ -74,6 +75,7 @@ local function UnpackScalerItem(binData, plength)
   for i=1, (plength-20-6*4)/4 do
     data, offset = DecodeBytes(binData, "I4", offset)
     if debug_log >= 1 then print("  -------> scaler value =", data)	end
+--    if true then print("  -------> scaler value =", data)	end
   end
 end
 

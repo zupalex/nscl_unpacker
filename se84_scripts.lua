@@ -240,10 +240,94 @@ end
 ----------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------
 
-function SetOutputType(out_type, input_type)
+local run_infos = {
+  [1] = {cut_suffix="_1", coinc_win = {low=-2, high=5}},
+  [70] = {cut_suffix="_2", coinc_win = {low=-2, high=5}},
+  [73] = {cut_suffix="_3", coinc_win = {low=-2, high=5}},
+  [76] = {cut_suffix="_4",coinc_win = {low=0, high=10}},
+}
+
+local GetRunCategory = function(runname)
+  local runnbr = runname:match("-%d%d%d%d%-")
+  runnbr = tonumber(runnbr:sub(2, 5))
+
+  local low_bound, high_bound = 1, 9999
+
+  for k, v in pairs(run_infos) do
+    if k < runnbr and k > low_bound then
+      low_bound = k
+    end
+
+    if k > runnbr and k < high_bound then
+      high_bound = k
+    end
+  end
+
+  return low_bound
+end
+
+function SetOutputType(out_type, input_type, output_name)
   if out_type:lower() == "histograms" then
     local init = require("nscl_unpacker/nscl_hist_processors")
-    init(input_type)    
+    init(input_type)
+
+    if input_type == "file" then
+      local run_cat = GetRunCategory(output_name)
+      local cutsuffix = run_infos[run_cat].cut_suffix
+
+      local cfile = TFile("/user/e16025/luaXroot/user/pid_cuts.root", "read")
+      sidar_protons_nopt = cfile:GetObject("TCutG", "sidar_protons_nopt")
+      active_cuts[sidar_protons_nopt:GetName()] = sidar_protons_nopt
+
+      sx3_up_protons_pt = cfile:GetObject("TCutG", "sx3_up_protons_pt")
+      active_cuts[sx3_up_protons_pt:GetName()] = sx3_up_protons_pt
+      sx3_up_protons_nopt = cfile:GetObject("TCutG", "sx3_up_protons_nopt")
+      active_cuts[sx3_up_protons_nopt:GetName()] = sx3_up_protons_nopt
+      sx3_down_protons_pt = cfile:GetObject("TCutG", "sx3_down_protons_pt")
+      active_cuts[sx3_down_protons_pt:GetName()] = sx3_down_protons_pt
+      sx3_down_protons_nopt = cfile:GetObject("TCutG", "sx3_down_protons_nopt")
+      active_cuts[sx3_down_protons_nopt:GetName()] = sx3_down_protons_nopt
+
+      crdc_tac_cut = cfile:GetObject("TCutG", "tac_vs_crdc1x"..cutsuffix)
+      active_cuts[crdc_tac_cut:GetName()] = crdc_tac_cut
+
+      angle_tof_cut = cfile:GetObject("TCutG", "angle_tof_cut"..cutsuffix)
+      active_cuts[angle_tof_cut:GetName()] = angle_tof_cut
+
+      pid_unreacted = cfile:GetObject("TCutG", "pid_unreacted")
+      active_cuts[pid_unreacted:GetName()] = pid_unreacted
+
+      pid_se85 = cfile:GetObject("TCutG", "pid_se85")
+      active_cuts[pid_se85:GetName()] = pid_se85
+
+      crdc1x_unreacted = cfile:GetObject("TCutG", "crdc1x_unreacted")
+      active_cuts[crdc1x_unreacted:GetName()] = crdc1x_unreacted
+
+      crdc1x_leftunreacted = cfile:GetObject("TCutG", "crdc1x_leftunreacted")
+      active_cuts[crdc1x_leftunreacted:GetName()] = crdc1x_leftunreacted
+
+      gate_pid_1 = cfile:GetObject("TCutG", "gate_pid_1")
+      active_cuts[gate_pid_1:GetName()] = gate_pid_1
+
+      gate_pid_2 = cfile:GetObject("TCutG", "gate_pid_2")
+      active_cuts[gate_pid_2:GetName()] = gate_pid_2
+
+      gate_pid_3 = cfile:GetObject("TCutG", "gate_pid_3")
+      active_cuts[gate_pid_3:GetName()] = gate_pid_3
+
+      gate_pid_4 = cfile:GetObject("TCutG", "gate_pid_4")
+      active_cuts[gate_pid_4:GetName()] = gate_pid_4
+
+      gate_pid_5 = cfile:GetObject("TCutG", "gate_pid_5")
+      active_cuts[gate_pid_5:GetName()] = gate_pid_5
+
+      cfile:Close()
+
+      SetCoincidenceWindow(run_infos[run_cat].coinc_win.low, run_infos[run_cat].coinc_win.high)
+    end
+  elseif out_type:lower() == "root" then
+    local init = require("nscl_unpacker/nscl_tree_processors")
+    tree, tbranches = init(input_type)
   end
 end
 
@@ -277,7 +361,70 @@ function StartListeningRingSelector(dump, source, accept, calibrate)
 
   if dump then debug_log = 3 end
 
+--  local xfprate_monitorfile = TFile("/user/e16025/luaXroot/user/nscl_unpacker/monitor_xfp_rate.root", "read")
+--  local crdcx_cut = xfprate_monitorfile:GetObject("TCutG", "crdc1_cut")
+--  local xfprate_graph = xfprate_monitorfile:GetObject("TGraph", "graph")
+--  if xfprate_graph == nil then 
+--    xfprate_graph = TGraph()
+--    xfprate_graph:SetName("graph")
+--    xfprate_graph:SetTitle("XFP Efficiency (compared to CRDC1)")
+--  end
+--  xfprate_monitorfile:Close()
+
+  local startTime = GetClockTime()
+
+--  xfprate_graph:Draw("ALP")
+
+  local getdate = AttachOutput("date", "date")
+  local date = getdate:WaitAndRead()
+  local dIter = date:gmatch("%g+")
+  local day, month, daynum, time, zone, year = dIter(), dIter(), dIter(), dIter(), dIter(), dIter()
+  local root_logfile = TFile("/user/e16025/luaXroot/user/root_logs/"..day.."-"..daynum.."-"..month.."-"..year.."-"..time..".root", "recreate")
+
   SetOutputType("histograms", "online")
+
+  root_logfile:Write()
+
+  local cfile = TFile("/user/e16025/luaXroot/user/pid_cuts.root", "read")
+
+  sidar_protons_nopt = cfile:GetObject("TCutG", "sidar_protons_nopt")
+  active_cuts[sidar_protons_nopt:GetName()] = sidar_protons_nopt
+  sx3_up_protons_pt = cfile:GetObject("TCutG", "sx3_up_protons_pt")
+  active_cuts[sx3_up_protons_pt:GetName()] = sx3_up_protons_pt
+  sx3_up_protons_nopt = cfile:GetObject("TCutG", "sx3_up_protons_nopt")
+  active_cuts[sx3_up_protons_nopt:GetName()] = sx3_up_protons_nopt
+  sx3_down_protons_pt = cfile:GetObject("TCutG", "sx3_down_protons_pt")
+  active_cuts[sx3_down_protons_pt:GetName()] = sx3_down_protons_pt
+  sx3_down_protons_nopt = cfile:GetObject("TCutG", "sx3_down_protons_nopt")
+  active_cuts[sx3_down_protons_nopt:GetName()] = sx3_down_protons_nopt
+
+  crdc_tac_cut = cfile:GetObject("TCutG", "tac_vs_crdc1x_4")
+  active_cuts[crdc_tac_cut:GetName()] = crdc_tac_cut
+
+  angle_tof_cut = cfile:GetObject("TCutG", "angle_tof_cut_4")
+  active_cuts[angle_tof_cut:GetName()] = angle_tof_cut
+
+  crdc1x_unreacted = cfile:GetObject("TCutG", "crdc1x_unreacted")
+  active_cuts[crdc1x_unreacted:GetName()] = crdc1x_unreacted
+  crdc1x_leftunreacted = cfile:GetObject("TCutG", "crdc1x_leftunreacted")
+  active_cuts[crdc1x_leftunreacted:GetName()] = crdc1x_leftunreacted
+
+  gate_pid_1 = cfile:GetObject("TCutG", "gate_pid_1")
+  active_cuts[gate_pid_1:GetName()] = gate_pid_1
+
+  gate_pid_2 = cfile:GetObject("TCutG", "gate_pid_2")
+  active_cuts[gate_pid_2:GetName()] = gate_pid_2
+
+  gate_pid_3 = cfile:GetObject("TCutG", "gate_pid_3")
+  active_cuts[gate_pid_3:GetName()] = gate_pid_3
+
+  gate_pid_4 = cfile:GetObject("TCutG", "gate_pid_4")
+  active_cuts[gate_pid_4:GetName()] = gate_pid_4
+
+  gate_pid_5 = cfile:GetObject("TCutG", "gate_pid_5")
+  active_cuts[gate_pid_5:GetName()] = gate_pid_5
+
+  cfile:Close()
 
   local pipe=AttachOutput(os.getenv("DAQBIN").."/ringselector", "ringselector", 
     {accept, "--non-blocking", source}, {"DAQBIN"})
@@ -376,6 +523,28 @@ function StartListeningRingSelector(dump, source, accept, calibrate)
       last_print = nevt
 
       NSCL_UNPACKER.PostProcessing()
+
+      if ClockTimeDiff(startTime, "second") > 600 then
+        startTime = GetClockTime()
+
+        root_logfile:Overwrite()
+        root_logfile:Flush()
+
+--        local xfp_integral = online_hists.h_mtdc_tof_xf:Integral(-13, 25)
+--        local crdc1x_integral = crdcx_cut:IntegralHist(online_hists.h_crdc1_envsch)
+
+--        xfprate_graph:SetNPoint(xfprate_graph:GetMaxSize()+1)
+--        xfprate_graph:SetPoint(xfprate_graph:GetMaxSize(), startTime.sec, xfp_integral/crdc1x_integral)
+
+--        xfprate_clone = xfprate_graph:Clone()
+
+--        xfprate_monitorfile = TFile("/user/e16025/luaXroot/user/nscl_unpacker/monitor_xfp_rate.root", "recreate")
+--        xfprate_clone:Write()
+--        crdcx_cut:Clone():Write()
+--        xfprate_monitorfile:Close()
+
+--        xfprate_graph:Update()
+      end
     end
 
 --    theApp:ProcessEvents()
@@ -384,16 +553,40 @@ function StartListeningRingSelector(dump, source, accept, calibrate)
     scaler_buffer = {}
     physics_count_buffer = {}
   end
+
+  root_logfile:Overwrite()
+  root_logfile:Close()
 end
 
-function ReplayNSCLEvt(evtfile, max_packet, skip_to_physics)
+
+function GenerateFilesInput(origin_path, runnbrs)
+  local evtfiles = {}
+
+  for i, run in ipairs(runnbrs) do
+    local runpath = origin_path.."/run"..run.."/run-"
+    if run < 10 then runpath = runpath.."000"..run.."-00.evt"
+    elseif run < 100 then runpath = runpath.."00"..run.."-00.evt"
+    elseif run < 1000 then runpath = runpath.."0"..run.."-00.evt"
+    else runpath = runpath..run.."-00.evt" end
+
+    table.insert(evtfiles, runpath)
+  end
+
+  return evtfiles
+end
+
+function ReplayNSCLEvt(evtfiles, max_packet, skip_to_physics, outroot)
   nscl_buffer = {}
   scaler_buffer = {}
 
   NSCL_UNPACKER.PHYSICS_FRAGMENT = true
 --  NSCL_UNPACKER.PHYSICS_FRAGMENT = false
 
-  local s800_file = assert(io.open(evtfile)) 
+  if type(evtfiles) == "string" then
+    evtfiles = {evtfiles}
+  end
+
+  local s800_file = assert(io.open(evtfiles[1])) 
 
   local fpos = 0
   local filelength = s800_file:seek("end")
@@ -407,18 +600,22 @@ function ReplayNSCLEvt(evtfile, max_packet, skip_to_physics)
     end
   end
 
---  debug_log=3
+--  debug_log=1
 --  debug_log_details.crdc = true
 
---  local buffile = TFile("buffer.root", "recreate")
+  local buffile
+  if outroot then
+    buffile = TFile(outroot, "recreate")
+  end
 
   local hists
 
-  SetOutputType("histograms", "file")
+--  SetOutputType("root", "file")
+  SetOutputType("histograms", "file", evtfiles[1])
 
---  buffile:Write()
+  buffile:Write()
 
-  local dumpEvery = 30000
+  local dumpEvery = 10000
   local prevProgress = 0
 
   local nevt = 0
@@ -428,40 +625,77 @@ function ReplayNSCLEvt(evtfile, max_packet, skip_to_physics)
   print("Convert process started at")
   local success = os.execute("date")
 
-  while CheckSignals() and fpos < filelength and (max_packet == nil or packet_counter < max_packet) do
+--  online_hists.ic_vs_xfp_corr:Draw("colz")
+
+  while CheckSignals() and (fpos < filelength or #evtfiles > 1) and (max_packet == nil or packet_counter < max_packet) do
+    if fpos >= filelength then
+      if #evtfiles > 1 then
+        fpos = 0
+        stat_term:Write(string.format("\nFinished treating %s, switching to %s\n", evtfiles[1], evtfiles[2]))
+        table.remove(evtfiles, 1)
+        s800_file = assert(io.open(evtfiles[1]))
+        filelength = s800_file:seek("end")
+        s800_file:seek("set", 0)
+        buffile:Overwrite()
+        buffile:Flush()
+
+        run_cat = GetRunCategory(evtfiles[1])
+        cutsuffix = run_infos[run_cat].cut_suffix
+
+        cfile = TFile("/user/e16025/luaXroot/user/pid_cuts.root", "read")
+        crdc_tac_cut = cfile:GetObject("TCutG", "tac_vs_crdc1x"..cutsuffix)
+        active_cuts[crdc_tac_cut:GetName()] = crdc_tac_cut
+        angle_tof_cut = cfile:GetObject("TCutG", "angle_tof_cut"..cutsuffix)
+        active_cuts[angle_tof_cut:GetName()] = angle_tof_cut
+        cfile:Close()
+
+        SetCoincidenceWindow(run_infos[run_cat].coinc_win.low, run_infos[run_cat].coinc_win.high)
+      else
+        stat_term:Write("\nReached end of last file...\n")
+        break
+      end
+    end
+
     if debug_log == 0 and packet_counter-prevProgress > dumpEvery then
       prevProgress = packet_counter
       local progress = fpos/filelength
       stat_term:Write(string.format("Processed %5.1f %% (%-12i packets)\r", progress*100, packet_counter))
 --    io.write("Processed ", (fpos/filelength)*100, " %\r")
 
-      if debug_log == 0 then
-        theApp:Update()
+--      if debug_log == 0 then
+--        theApp:Update()
+--      end
+    end
+
+    local ptype, bread = ReadNextPacket(s800_file)
+
+    if ptype ~= nil then
+      nevt = nevt+1
+      packet_counter = packet_counter+1
+
+      if debug_log == 0 and ptype == "PHYSICS_EVENT" then
+--      print(#nscl_buffer)
+        ProcessNSCLBuffer(nscl_buffer, nevt)
       end
 
---      buffile:Overwrite()
---      buffile:Flush()
+      nscl_buffer = {}
+      scaler_buffer = {}
+
+      fpos = s800_file:seek("cur")
+
+--      NSCL_UNPACKER.PostProcessing()
     end
-
-    local read_ret, bytes_read = ReadNextPacket(s800_file)
-    if read_ret == nil then break end
-    packet_counter = packet_counter+1
-
-    if debug_log == 0 and read_ret == "PHYSICS_EVENT" then
---      print(#nscl_buffer)
-      nevt = nevt + ProcessNSCLBuffer(nscl_buffer, nevt)
-    end
-
-    nscl_buffer = {}
-    scaler_buffer = {}
-
-    fpos = s800_file:seek("cur")
   end
 
-  print(string.format("Processed %5.1f %% (%-12i packets)", 100.0, packet_counter))
+  stat_term:Write(string.format("\nProcessed %5.1f %% (%-12i packets)\n", 100.0, packet_counter))
 
   print("Convert process finished at")
   success = os.execute("date")
 
---  buffile:Close()
+--  tree:Write()
+
+  buffile:Overwrite()
+  buffile:Flush()
+
+  buffile:Close()
 end
