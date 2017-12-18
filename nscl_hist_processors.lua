@@ -237,18 +237,18 @@ function SetupORRUBAHistograms()
 
 --    AddMonitor("ORRUBA En vs. Ch - S800 coincidence", {name="h_ornl_envsch_s800coinc", title="ORNL DAQ Energy vs. Channel - S800 coincidence", xmin=0, xmax=899, nbinsx=899, ymin=0, ymax=4096, nbinsy=2048}, fillfns.FillChVsValue)
 
-  for detid=1, 12 do
-    for strip=1, 4 do
-      local hname, htitle, detkey
+--  for detid=1, 12 do
+--    for strip=1, 4 do
+--      local hname, htitle, detkey
 
 --      hname = string.format("SX3_U%d_resistive_%d", detid, strip)
 --      htitle = string.format("SuperX3 U%d front strip %d", detid, strip)
-      detkey = string.format("SuperX3 U%d", detid)
+--      detkey = string.format("SuperX3 U%d", detid)
 --      AddMonitor(htitle, {name = hname, title = htitle, xmin=0, xmax=4096, nbinsx=512, ymin=0, ymax=4096, nbinsy=512}, fillfns.FillSX3LeftVsRight(detkey, strip))
 
-      hname = string.format("SX3_U%d_position_%d", detid, strip)
-      htitle = string.format("SuperX3 U%d Energy vs Position strip %d", detid, strip)
-      AddMonitor(htitle, {name = hname, title = htitle, xmin=-1, xmax=1, nbinsx=200, ymin=orruba_en_min, ymax=orruba_en_max, nbinsy=orruba_nbins}, fillfns.FillSX3EnergyVsPosition(detkey, strip))
+--      hname = string.format("SX3_U%d_position_%d", detid, strip)
+--      htitle = string.format("SuperX3 U%d Energy vs Position strip %d", detid, strip)
+--      AddMonitor(htitle, {name = hname, title = htitle, xmin=-1, xmax=1, nbinsx=200, ymin=orruba_en_min, ymax=orruba_en_max, nbinsy=orruba_nbins}, fillfns.FillSX3EnergyVsPosition(detkey, strip))
 
 --      hname = string.format("SX3_U%d_position_%d_enback", detid, strip)
 --      htitle = string.format("SuperX3 U%d Energy vs Position %d using backside energy", detid, strip)
@@ -256,18 +256,18 @@ function SetupORRUBAHistograms()
 
 --      hname = string.format("SX3_D%d_resistive_%d", detid, strip)
 --      htitle = string.format("SuperX3 D%d front strip %d", detid, strip)
-      detkey = string.format("SuperX3 D%d", detid)
+--      detkey = string.format("SuperX3 D%d", detid)
 --      AddMonitor(htitle, {name = hname, title = htitle, xmin=0, xmax=4096, nbinsx=512, ymin=0, ymax=4096, nbinsy=512}, fillfns.FillSX3LeftVsRight(detkey, strip))
 
-      hname = string.format("SX3_D%d_position_%d", detid, strip)
-      htitle = string.format("SuperX3 D%d Energy vs Position strip %d", detid, strip)
-      AddMonitor(htitle, {name = hname, title = htitle, xmin=-1, xmax=1, nbinsx=200, ymin=orruba_en_min, ymax=orruba_en_max, nbinsy=orruba_nbins}, fillfns.FillSX3EnergyVsPosition(detkey, strip))
+--      hname = string.format("SX3_D%d_position_%d", detid, strip)
+--      htitle = string.format("SuperX3 D%d Energy vs Position strip %d", detid, strip)
+--      AddMonitor(htitle, {name = hname, title = htitle, xmin=-1, xmax=1, nbinsx=200, ymin=orruba_en_min, ymax=orruba_en_max, nbinsy=orruba_nbins}, fillfns.FillSX3EnergyVsPosition(detkey, strip))
 
 --      hname = string.format("SX3_D%d_position_%d_enback", detid, strip)
 --      htitle = string.format("SuperX3 D%d Energy vs Position strip %d using backside energy", detid, strip)
 --      AddMonitor(htitle, {name = hname, title = htitle, xmin=-1, xmax=1, nbinsx=200, ymin=orruba_en_min, ymax=orruba_en_max, nbinsy=orruba_nbins}, fillfns.FillSX3EnergyVsPosition(detkey, strip, true))
-    end
-  end
+--    end
+--  end
 
 --  for strip=1,4 do
 --    hname = string.format("Elastics_TR_%d", strip)
