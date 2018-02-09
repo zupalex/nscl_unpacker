@@ -1,5 +1,4 @@
 require("nscl_unpacker/nscl_unpacker_cfg")
-local mapping = require("ldf_unpacker/se84_mapping")
 
 physicsPacketTypes = {}
 
@@ -13,7 +12,7 @@ local function UnpackTrigger(data, offset, size)
 --  print(trigpattern)
 
   if nscl_buffer then
-    nscl_buffer[#nscl_buffer].trig = trigpattern
+    nscl_buffer.trig = trigpattern
   end
 
   local trigs = {[8] = "s800", [9] = "external1", [10] = "external2", [11] = "secondary"}
@@ -63,7 +62,7 @@ end
 local function UnpackEventNumber(data, offset, size)
   local evtnb, newoff = DecodeBytes(data, "I6", offset)
   if debug_log >= 1 then print("   ##### EVENT NUMBER:", evtnb) end
-  if nscl_buffer then nscl_buffer[#nscl_buffer].evtnbr = evtnb end
+  if nscl_buffer then nscl_buffer.evtnbr = evtnb end
   return newoff
 end
 
@@ -73,7 +72,7 @@ local function UnpackScintillator(data, offset, size)
   local last_byte = offset+size
 
   if nscl_buffer then
-    nscl_buffer[#nscl_buffer].scint = {up = newtable(), down = newtable()}
+    nscl_buffer.scint = {up = newtable(), down = newtable()}
   end
 
   while offset < last_byte do
@@ -89,7 +88,7 @@ local function UnpackScintillator(data, offset, size)
     end
 
     if nscl_buffer then
-      nscl_buffer[#nscl_buffer].scint[ch == 0 and "up" or "down"]:insert(en_val & 0x07ff)
+      nscl_buffer.scint[ch == 0 and "up" or "down"]:insert(en_val & 0x07ff)
     end
   end
 
@@ -109,7 +108,7 @@ local function UnpackICEnergy(data, offset, size)
     local energy = ic_val & 0x0fff
 
     if nscl_buffer then
-      local icdata = nscl_buffer[#nscl_buffer].ionchamber
+      local icdata = nscl_buffer.ionchamber
       icdata[channel] = energy
       icdata.mult = icdata.mult+1
     end
@@ -132,7 +131,7 @@ local function UnpackIonChamber(data, offset, size)
 --  print("IC Energy words:", subpacket_length, 2*(subpacket_length-2))
 
   if nscl_buffer then
-    nscl_buffer[#nscl_buffer].ionchamber = {mult=0}
+    nscl_buffer.ionchamber = {mult=0}
   end
 
   return physicsPacketTypes[subpacket_type].fn(data, offset, 2*(subpacket_length-2))
@@ -179,18 +178,22 @@ local function UnpackCRDCRaw(data, offset, size)
 
       if not bad_sample then
         if nscl_buffer then
-          local crdc_entry = nscl_buffer[#nscl_buffer].crdc:back().data
+          local crdc_entry = nscl_buffer.crdc:back().data
           local pad_num = ch + conn*64
 
           local energy = word & 0x3ff
 
           if energy > 0 then
             if crdc_entry[pad_num] == nil then
-              crdc_entry[pad_num] = newtable()
---              nscl_buffer[#nscl_buffer].crdc:back().mult = nscl_buffer[#nscl_buffer].crdc:back().mult+1
+              crdc_entry[pad_num] = {}
+              crdc_entry[pad_num].energies = newtable()
+              crdc_entry[pad_num].samples = newtable()
             end
 
-            crdc_entry[pad_num]:insert({energy=energy, sample=sample})
+            crdc_entry[pad_num].energies:insert(energy)
+            crdc_entry[pad_num].samples:insert(sample)
+
+--            crdc_entry[pad_num]:insert({energy=energy, sample=sample})
           end
 
           if prev_sample == nil then
@@ -238,7 +241,7 @@ local function UnpackCRDCAnode(data, offset, size)
   time, offset = DecodeBytes(data, "H", offset)
 
   if nscl_buffer then
-    local crdc_entry = nscl_buffer[#nscl_buffer].crdc:back().anode
+    local crdc_entry = nscl_buffer.crdc:back().anode
 
     crdc_entry.energy = en & 0xfff
     crdc_entry.time = time & 0xfff
@@ -260,10 +263,10 @@ local function UnpackCRDC(data, offset, size)
   end
 
   if nscl_buffer then
-    if nscl_buffer[#nscl_buffer].crdc == nil then 
-      nscl_buffer[#nscl_buffer].crdc = newtable() 
+    if nscl_buffer.crdc == nil then 
+      nscl_buffer.crdc = newtable() 
     end
-    nscl_buffer[#nscl_buffer].crdc:insert({id=label, data={}, anode={}, mult=0})
+    nscl_buffer.crdc:insert({id=label, data={}, anode={}, mult=0})
   end
 
   local subpacket_length, subpacket_type
@@ -402,7 +405,7 @@ local function UnpackHodoEnergy(data, offset, size)
     hodo, offset = DecodeBytes(data, "H", offset)
   end
 
-  return offset
+  return last_byte
 end
 
 local function UnpackHodoHitpattern(data, offset, size)
@@ -493,7 +496,7 @@ local function UnpackORRUBA84Se(data, offset, size)
   local orruba_data = {}
 
   if nscl_buffer then
-    nscl_buffer[#nscl_buffer].orruba = {}
+    nscl_buffer.orruba = {}
   end
 
   while offset < last_byte do
@@ -503,61 +506,7 @@ local function UnpackORRUBA84Se(data, offset, size)
 
     value, offset = DecodeBytes(data, "H", offset)
 
-    if nscl_buffer and channel <= 899 then
-      nscl_buffer[#nscl_buffer].orruba[channel] = value
-    end
-
-    table.insert(orruba_data, {channel=channel, value=value})
-
-    if debug_log >= 2 then 
-      print("Channel number:", channel, "Value:", value)
-    end
-  end
-
-  return last_byte
-end
-
-local function UnpackORRUBA84SeV2(data, offset, size)
-  local last_byte = offset+size
-
-  local orruba_data = {}
-
-  local buf
-
-  if nscl_buffer then
-    nscl_buffer[#nscl_buffer].orruba = {chvalmap = {}}
-    buf = nscl_buffer[#nscl_buffer].orruba
-  end
-
-  while offset < last_byte do
-    local value, channel
-    channel, offset = DecodeBytes(data, "H", offset)
-    channel = channel & 0x7fff
-
-    value, offset = DecodeBytes(data, "H", offset)
-
-    if buf and channel <= 899 then
-      local detinf = mapping.getdetinfo(channel)
-
-      if buf[detinfo.dettype] == nil then
-        buf[detinfo.dettype] = {}
-      end
-
-      if buf[detinfo.dettype][detinfo.detpos] == nil then
-        buf[detinfo.dettype][detinfo.detpos] = {}
-      end
-
-      if buf[detinfo.dettype][detinfo.detpos][detinfo.detnum] == nil then
-        buf[detinfo.dettype][detinfo.detpos][detinfo.detnum] = {}
-      end
-
-      local detbuf = buf[detinfo.dettype][detinfo.detpos][detinfo.detnum]    
-
-      detbuf[detinf.stripnum] = {channel=channel, value=value}
-      buf[channel] =  chval
-    end
-
---    table.insert(orruba_data, {channel=channel, value=value})
+    nscl_buffer.orruba[channel] = value
 
     if debug_log >= 2 then 
       print("Channel number:", channel, "Value:", value)
@@ -575,8 +524,8 @@ local function UnpackMTDC(data, offset, size)
   local mtdcs
 
   if nscl_buffer then
-    nscl_buffer[#nscl_buffer].mtdc = {}
-    mtdcs = nscl_buffer[#nscl_buffer].mtdc
+    nscl_buffer.mtdc = {}
+    mtdcs = nscl_buffer.mtdc
   end
 
   local hit_word, time, channel, hit
@@ -633,6 +582,7 @@ physicsPacketTypes = {
         if debug_log >= 2 then print("Found packet:", PrintHexa(ptag, 2), physicsPacketTypes[ptag] and physicsPacketTypes[ptag].name or nil, bytes_length) end
 
         if physicsPacketTypes[ptag].fn then
+--        if ptag == 0xdabe or ptag == 0x5801 then
           offset = physicsPacketTypes[ptag].fn(data, offset, bytes_length)
 --          print("offset:", offset)
         else
