@@ -1,9 +1,0 @@
-*.so
-*.root
-*.txt
-*.log
-*_cxx*
-<<<<<<< HEAD
-=======
-!.gitignore
->>>>>>> 4e34c39cd105d0b05345544a7ea29285b2c518a5
