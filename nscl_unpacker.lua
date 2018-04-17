@@ -1,6 +1,8 @@
 require("binaryreader")
 
-require("nscl_unpacker/nscl_itempackets")
+local DecodeBytes = string.unpack
+
+requirep("nscl_unpacker/nscl_itempackets")
 
 --CompileC("./2011_declasses.cxx", "nscl_2011_detclasses")
 --LoadLib("./2011_declasses_cxx.so", "nscl_2011_detclasses")
@@ -12,7 +14,7 @@ logfile = assert(io.open("./nsclunpack.log", "w"))
 warning_msgs = {[1] = {msg = "XLM Buffer too small", count = 0}}
 
 local function ReadPacketHeader(bdata)
-  local plength, ptype = string.unpack("I4I4", bdata)
+  local plength, ptype = DecodeBytes("I4I4", bdata)
 
   return plength, ptype
 end
@@ -23,12 +25,14 @@ function UnpackPacket(binData, ptype, plength)
   local unpackfn = evtPacketTypes[ptype].unpackfn
 
   if nscl_buffer and pitemtype == "PHYSICS_EVENT" then 
-    table.insert(nscl_buffer, {pitemtype=pitemtype})
+    nscl_buffer.pitemtype = pitemtype
   elseif scaler_buffer and pitemtype == "SCALER" then 
     table.insert(scaler_buffer, {pitemtype=pitemtype})
   end
 
-  if debug_log > 0 and not ignore_packets[pitemtype] then print("------------- Packet Name:", pname, "( item type =", pitemtype, ") -------------------") end
+  #if debug_log > 0 
+  if not ignore_packets[pitemtype] then print("------------- Packet Name:", pname, "( item type =", pitemtype, ") -------------------") end
+  #endif
 
   data = {}
 
@@ -36,16 +40,16 @@ function UnpackPacket(binData, ptype, plength)
     data = unpackfn(binData, plength)
   end
 
-  if debug_log > 0 then
-    if not ignore_packets[pitemtype] then
-      if pitemtype == "CHANGE_STATE" then
-        print("Run Number:", data.run)
-        print("Time Offset:", data.toff)
-        print("Timestamp:", data.ts)
-        print("Title:", data.title)
-      end
+  #if debug_log > 0
+  if not ignore_packets[pitemtype] then
+    if pitemtype == "CHANGE_STATE" then
+      print("Run Number:", data.run)
+      print("Time Offset:", data.toff)
+      print("Timestamp:", data.ts)
+      print("Title:", data.title)
     end
   end
+  #endif
 
   return pitemtype or "unknown"
 end
@@ -76,10 +80,10 @@ function ReadNextPacket(bfile, plength, ptype)
     print("WARNING: attempt to read a packet but the type is unknown =>", ptype)
   end
 
-  if debug_log > 0 then 
-    print("*************************************************************")
-    print("Raw packet dump info at", curr_file_pos, PrintHexa(curr_file_pos), ptype, plength) 
-  end
+  #if debug_log > 0 
+  print("*************************************************************")
+  print("Raw packet dump info at", curr_file_pos, PrintHexa(curr_file_pos), ptype, plength) 
+  #endif
 
   local binData = bfile:read(plength-8)
 
@@ -98,10 +102,10 @@ function IdentifyAndUnpack(binData, offset)
     return nil, plength-(binData:len()-offset)
   end
 
-  if debug_log > 0 then 
-    print("*************************************************************")
-    print("Raw packet dump info", ptype, plength)
-  end
+  #if debug_log > 0 
+  print("*************************************************************")
+  print("Raw packet dump info", ptype, plength)
+  #endif
 
   return UnpackPacket(binData:sub(offset+9), ptype, plength-8), plength
 end
@@ -110,11 +114,11 @@ function ConvertToROOT(input_file, output_file, initial_offset, maxEvt)
   local ret = os.execute("date")
 
   local bfile = io.open(input_file, "rb")
-  if debug_log == 0 then 
-    logfile = io.open(output_file..".log", "w")
-  else
-    logfile = io.open("debug_log.log", "w")
-  end
+  #if debug_log == 0 
+  logfile = io.open(output_file..".log", "w")
+  #else
+  logfile = io.open("debug_log.log", "w")
+  #endif
 
   local input_length = bfile:seek("end")
   bfile:seek("set", initial_offset or 0)
@@ -144,11 +148,13 @@ function ConvertToROOT(input_file, output_file, initial_offset, maxEvt)
   local pcounter = 0
 
   while itemtype and (maxEvt == nil or pcounter < maxEvt) do
-    if debug_log == 0 and (progress == 0 or curr_file_pos/input_length > progress+dump_every_pct) then
+    #if debug_log == 0
+    if progress == 0 or curr_file_pos/input_length > progress+dump_every_pct then
       io.write(string.format("Processed %5.1f%% of the file\r",  progress*100))
       io.flush()
       progress = progress+dump_every_pct
     end
+    #endif
 
     if itemtype == "PHYSICS_EVENT" then
       tree:Fill()

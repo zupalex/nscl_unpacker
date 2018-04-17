@@ -1,5 +1,7 @@
 require("nscl_unpacker/nscl_unpacker_cfg")
 
+local DecodeBytes = string.unpack
+
 physicsPacketTypes = {}
 
 -- **************** TRIGGER PACKETS ******************** --
@@ -7,7 +9,7 @@ physicsPacketTypes = {}
 local function UnpackTrigger(data, offset, size)
   local last_byte = offset+size
   local trigpattern
-  trigpattern, offset = string.unpack("H", data, offset)
+  trigpattern, offset = DecodeBytes("H", data, offset)
 
 --  print(trigpattern)
 
@@ -20,7 +22,7 @@ local function UnpackTrigger(data, offset, size)
   while offset < last_byte do
     local time, trig
 
-    time, offset = string.unpack("H", data, offset)
+    time, offset = DecodeBytes("H", data, offset)
 
     trig = (time & 0xf000) >> 12
   end
@@ -40,7 +42,7 @@ local function UnpackTOF(data, offset, size)
   while offset < last_byte do
     local tof, tdc_type
 
-    tof, offset= string.unpack("H", data, offset)
+    tof, offset= DecodeBytes("H", data, offset)
 
     tdc_type = (tof & 0xf000) >> 12
     tofs[tdcs[tdc_type]] = tof & 0x0fff
@@ -52,16 +54,21 @@ end
 -- **************** TIMESTAMP PACKETS ******************** --
 
 local function UnpackTimestamp(data, offset, size)
-  local ts, newoff = string.unpack("J", data, offset)
-  if debug_log >= 1 then print("   ##### TIMESTAMP:", ts) end
+  local ts, newoff = DecodeBytes("J", data, offset)
+  #if debug_log >= 1
+  print("   ##### TIMESTAMP:", ts) 
+  #endif
   return newoff
 end
 
 -- **************** EVENT NUMBER PACKETS ******************** --
 
 local function UnpackEventNumber(data, offset, size)
-  local evtnb, newoff = string.unpack("I6", data, offset)
-  if debug_log >= 1 then print("   ##### EVENT NUMBER:", evtnb) end
+  local evtnb, newoff = DecodeBytes("I6", data, offset)
+  #if debug_log >= 1
+  print("   ##### EVENT NUMBER:", evtnb)
+  #endif
+
   if nscl_buffer then nscl_buffer.evtnbr = evtnb end
   return newoff
 end
@@ -78,13 +85,15 @@ local function UnpackScintillator(data, offset, size)
   while offset < last_byte do
     local en_val, t_val
 
-    en_val, t_val, offset = string.unpack("HH", data, offset)
+    en_val, t_val, offset = DecodeBytes("HH", data, offset)
 
     local ch = (en_val & 0xf000) >> 12
 
-    if debug_log >= 3 and debug_log_details.scint then
+    #if debug_log >= 3
+    if debug_log_details.scint then
       print(ch == 0 and "de_up:" or "de_down:", en_val & 0x07ff, ch == 0 and "time_up:" or "time_down:", t_val & 0x0fff)
     end
+    #endif
 
     if nscl_buffer then
       nscl_buffer.scint[ch == 0 and "up" or "down"]:insert(en_val & 0x07ff)
@@ -101,7 +110,7 @@ local function UnpackICEnergy(data, offset, size)
 
   while offset < last_byte do
     local ic_val
-    ic_val, offset = string.unpack("H", data, offset)
+    ic_val, offset = DecodeBytes("H", data, offset)
 
     local channel = (ic_val & 0xf000) >> 12
     local energy = ic_val & 0x0fff
@@ -120,7 +129,7 @@ local function UnpackIonChamber(data, offset, size)
   local last_byte = offset+size
 
   local subpacket_length, subpacket_type
-  subpacket_length, subpacket_type, offset = string.unpack("HH", data, offset)
+  subpacket_length, subpacket_type, offset = DecodeBytes("HH", data, offset)
 
   if last_byte-offset ~= 2*(subpacket_length-2) then
     logfile:write("We have an issue with Ion Chamber Subpacket @ ", curr_file_pos, " - ", PrintHexa(curr_file_pos), " -\n")
@@ -144,7 +153,7 @@ local function UnpackCRDCRaw(data, offset, size)
 
   local globalThr, ch, sample, badsample
 
-  globalThr, offset = string.unpack("H", data, offset)
+  globalThr, offset = DecodeBytes("H", data, offset)
 
   if globalThr > 0 then print("Global Threshold > 0 :", globalThr) end
 
@@ -153,7 +162,7 @@ local function UnpackCRDCRaw(data, offset, size)
   while offset < last_byte do
     local word, control_bit
 
-    word, offset = string.unpack("H", data, offset)
+    word, offset = DecodeBytes("H", data, offset)
 
     control_bit = word >> 15
 
@@ -235,7 +244,7 @@ local function UnpackCRDCAnode(data, offset, size)
   crdc_anode.energy = {}
   crdc_anode.time = {}
 
-  en, time, offset = string.unpack("HH", data, offset)
+  en, time, offset = DecodeBytes("HH", data, offset)
 
   if nscl_buffer then
     local crdc_entry = nscl_buffer.crdc:back().anode
@@ -253,11 +262,13 @@ local function UnpackCRDC(data, offset, size)
 
   local label
 
-  label, offset = string.unpack("H", data, offset)
+  label, offset = DecodeBytes("H", data, offset)
 
-  if debug_log >= 3 and debug_log_details.crdc then
+  #if debug_log >= 3 
+  if debug_log_details.crdc then
     print("CRDC ID:", label, size)
   end
+  #endif
 
   if nscl_buffer then
     if nscl_buffer.crdc == nil then 
@@ -268,20 +279,24 @@ local function UnpackCRDC(data, offset, size)
 
   local subpacket_length, subpacket_type
 
-  subpacket_length, subpacket_type, offset = string.unpack("HH", data, offset)
+  subpacket_length, subpacket_type, offset = DecodeBytes("HH", data, offset)
 
-  if debug_log >= 3 and debug_log_details.crdc then
+  #if debug_log >= 3 
+  if debug_log_details.crdc then
     print("  -> CRDC Packet:")
     print("     -> First Packet (\"Raw\") =", PrintHexa(subpacket_type,2), subpacket_length)
   end
+  #endif
 
   offset = physicsPacketTypes[subpacket_type].fn(data, offset, 2*(subpacket_length-2))
 
-  subpacket_length, subpacket_type, offset = string.unpack("HH", data, offset)
+  subpacket_length, subpacket_type, offset = DecodeBytes("HH", data, offset)
 
-  if debug_log >= 3 and debug_log_details.crdc then
+  #if debug_log >= 3
+  if debug_log_details.crdc then
     print("     -> Second Packet (\"Anode\") =", PrintHexa(subpacket_type, 2), subpacket_length)
   end
+  #endif
 
   offset = physicsPacketTypes[subpacket_type].fn(data, offset, 2*(subpacket_length-2))
 
@@ -362,12 +377,12 @@ local function UnpackPpacRaw(data, offset, size)
 
   local globalThr, ppac_data
 
-  globalThr, offset = string.unpack("H", data, offset)
+  globalThr, offset = DecodeBytes("H", data, offset)
 
   while offset < last_byte do
     local word1, word2
 
-    word1, word2, offset = string.unpack("HH", data, offset)
+    word1, word2, offset = DecodeBytes("HH", data, offset)
 
     local ch = word1 & 0x3f
     local conn = word2 >> 10
@@ -383,7 +398,7 @@ local function UnpackPpac(data, offset, size)
 
   local subpacket_length, subpacket_type
 
-  subpacket_length, subpacket_type, offset = string.unpack("HH", data, offset)
+  subpacket_length, subpacket_type, offset = DecodeBytes("HH", data, offset)
 
   return physicsPacketTypes[subpacket_type].fn(data, offset, 2*(subpacket_length-2))
 end
@@ -395,7 +410,7 @@ local function UnpackHodoEnergy(data, offset, size)
 
   while offset < last_byte do
     local hodo
-    hodo, offset = string.unpack("H", data, offset)
+    hodo, offset = DecodeBytes("H", data, offset)
   end
 
   return last_byte
@@ -404,7 +419,7 @@ end
 local function UnpackHodoHitpattern(data, offset, size)
   local hit_0_15, hit_16_31, time
 
-  hit_0_15, hit_16_31, time, offset = string.unpack("HHH", data, offset)
+  hit_0_15, hit_16_31, time, offset = DecodeBytes("HHH", data, offset)
 
   return offset
 end
@@ -412,7 +427,7 @@ end
 local function UnpackHodoscope(data, offset, size)
   local hodo_group
 
-  hodo_group, offset = string.unpack("H", data, offset)
+  hodo_group, offset = DecodeBytes("H", data, offset)
 
   if hodo_group < 2 then
     return UnpackHodoEnergy(data, offset, size-2)
@@ -432,10 +447,13 @@ local function UnpackXLM(data, offset, size)
 
   while offset < last_byte do
     if xlm_id == nil then
-      ptag, offset = string.unpack("H", data, offset)
+      ptag, offset = DecodeBytes("H", data, offset)
 
       if physicsPacketTypes[ptag] and physicsPacketTypes[ptag].subtype == "XLM" then
-        if debug_log >= 2 then print("Found", physicsPacketTypes[ptag].name, "packet") end
+        #if debug_log >= 2
+        print("Found", physicsPacketTypes[ptag].name, "packet")
+        #endif
+
         if physicsPacketTypes[ptag].name == "XLM1_PACKET" then
           xlm_id = 1
         elseif physicsPacketTypes[ptag].name == "XLM2_PACKET" then
@@ -448,21 +466,23 @@ local function UnpackXLM(data, offset, size)
       offset = offset + 6
 
       local nstrips, id, energy, time
-      nstrips, offset = string.unpack("H", data, offset)
+      nstrips, offset = DecodeBytes("H", data, offset)
       offset = offset+8 -- again we skip bytes... no idea what's coded there
 
-      if debug_log >= 2 then print("  -> nstrips:", nstrips, "offset:", offset) end
+      #if debug_log >= 2
+      print("  -> nstrips:", nstrips, "offset:", offset)
+      #endif
 
       for i=1, nstrips do
-        id, energy, time, offset = string.unpack("HHH", data, offset)
+        id, energy, time, offset = DecodeBytes("HHH", data, offset)
 
-        if debug_log >= 2 then 
-          print("  ~~~~~~", i, "~~~~~~")
-          print("  ------> id / chip / channel:", id, (id & 0x1fe0) >> 5, id & 0x1f)
-          print("  ------> energy:", energy)
-          print("  ------> time:", time)
-          print("  ------> offset:", offset)
-        end
+        #if debug_log >= 2 
+        print("  ~~~~~~", i, "~~~~~~")
+        print("  ------> id / chip / channel:", id, (id & 0x1fe0) >> 5, id & 0x1f)
+        print("  ------> energy:", energy)
+        print("  ------> time:", time)
+        print("  ------> offset:", offset)
+        #endif
 
         if last_byte - offset < 6 then
           logfile:write("WARNING @ ", curr_file_pos, " - address: ", PrintHexa(curr_file_pos), " - Not enough space remaining in buffer while there should be more strips coming...\n")
@@ -490,14 +510,14 @@ local function UnpackORRUBA84Se(data, offset, size)
 
   while offset < last_byte do
     local value, channel
-    channel, value, offset = string.unpack("HH", data, offset)
+    channel, value, offset = DecodeBytes("HH", data, offset)
     channel = channel & 0x7fff
 
     nscl_buffer.orruba[channel] = value
 
-    if debug_log >= 2 then 
+    #if debug_log >= 2 
       print("Channel number:", channel, "Value:", value)
-    end
+    #endif
   end
 
   return last_byte
@@ -518,7 +538,7 @@ local function UnpackMTDC(data, offset, size)
   local hit_word, time, channel, hit
 
   while offset < last_byte do
-    hit_word, time, offset = string.unpack("HH", data, offset)
+    hit_word, time, offset = DecodeBytes("HH", data, offset)
 
     channel = hit_word & 0xff
     hit = (hit_word >> 8) & 0x1f
@@ -547,22 +567,24 @@ physicsPacketTypes = {
 
       local nwords_16, packetTag, s800_version
 
-      nwords_16, nwords_16, packetTag, s800_version, offset = string.unpack("HHHH", data, offset) -- for some reasons it is written twice in a row, first in a 32 bits words
-                                                                                                  -- then in a 16 bits words... Both are self inclusive
+      nwords_16, nwords_16, packetTag, s800_version, offset = DecodeBytes("HHHH", data, offset) -- for some reasons it is written twice in a row, first in a 32 bits words
+      -- then in a 16 bits words... Both are self inclusive
 
 
-      if debug_log >= 2 then
+      #if debug_log >= 2
         print("Number of 16 bits words:", nwords_16)
         print("Packet Tag:", PrintHexa(packetTag, 2), physicsPacketTypes[packetTag].name)
         print("S800 Version:", s800_version)
-      end
+      #endif
 
       while offset < last_byte do
         local length, bytes_length, ptag, pdata
-        length, ptag, offset = string.unpack("HH", data, offset)
+        length, ptag, offset = DecodeBytes("HH", data, offset)
         bytes_length = 2*(length-2)
 
-        if debug_log >= 2 then print("Found packet:", PrintHexa(ptag, 2), physicsPacketTypes[ptag] and physicsPacketTypes[ptag].name or nil, bytes_length) end
+        #if debug_log >= 2
+        print("Found packet:", PrintHexa(ptag, 2), physicsPacketTypes[ptag] and physicsPacketTypes[ptag].name or nil, bytes_length) 
+        #endif
 
         if physicsPacketTypes[ptag].fn then
 --        if ptag == 0xdabe or ptag == 0x5801 then

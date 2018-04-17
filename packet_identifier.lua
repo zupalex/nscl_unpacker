@@ -1,9 +1,11 @@
 require("nscl_unpacker/nscl_unpacker_cfg")
 
+local DecodeBytes = string.unpack
+
 local Identifiers = {
   E16025PacketIdentifier = function(frag_header, data, offset, max_search)
     if frag_header == nil or frag_header.sourceID == 2 then
-      ptag = string.unpack("H", data, offset+4)
+      ptag = DecodeBytes("H", data, offset+4)
 
       if physicsPacketTypes[ptag].name == "S800_PACKET" then
         return ptag
@@ -19,7 +21,7 @@ local Identifiers = {
 
   DaveKr86PacketIdentifier = function(frag_header, data, offset, max_search)
     if frag_header == nil or frag_header.sourceID == 1 then
-      ptag = string.unpack("H", data, offset+4)
+      ptag = DecodeBytes("H", data, offset+4)
 
       if physicsPacketTypes[ptag].name == "S800_PACKET" then
         return ptag
@@ -31,7 +33,7 @@ local Identifiers = {
     last_byte = offset+max_search
 
     while not (physicsPacketTypes[word] and (physicsPacketTypes[word].subtype == "XLM")) and local_offset < last_byte do
-      word, local_offset = string.unpack("H", data, local_offset)
+      word, local_offset = DecodeBytes("H", data, local_offset)
     end
     return local_offset < last_byte and word or nil
   end,
